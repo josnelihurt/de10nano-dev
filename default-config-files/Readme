@@ -1,0 +1,18 @@
+
+
+For ubuntu Quartus requires libpng12
+===
+cd /tmp
+wget https://netactuate.dl.sourceforge.net/project/libpng/libpng12/1.2.59/libpng-1.2.59.tar.gz
+cd /tmp/libpng-1.2.59
+./configure --prefix=/usr/local
+make
+sudo make install
+sudo ldconfig
+
+
+In ubuntu Quartus silent is hanging on installation steps so I am using debian:stretch
+===
+
+How to build Quartus projects from command line 
+https://www.intel.com/content/www/us/en/programmable/support/support-resources/design-software/quartus-ii/sof-qts-scripting.html
