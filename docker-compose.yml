@@ -4,6 +4,9 @@ services:
   builder:
     build: .
     image: de10-nano-builder:v1
-    entrypoint: /bin/bash
+    ports: 
+      - 4400:4000
+    environment: 
+      - PASSWORD=password
     stdin_open: true # docker run -i
     tty: true        # docker run -t

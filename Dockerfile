@@ -239,11 +239,20 @@ RUN make -C buildroot ARCH=ARM \
 # Build default example
 RUN mkdir code
 WORKDIR /home/builder/code
-COPY src/custom_leds /home/builder/code/custom_leds
+ADD src/custom_leds /home/builder/code/custom_leds
 RUN sudo chown -R builder /home/builder/code/
 WORKDIR /home/builder/code/custom_leds
+#unable to run quartus at build stage it result with error Error (293007): Current module quartus_map ended unexpectedly. Verify that you have sufficient memory available to compile your design. You can view disk space and physical RAM requirements on the System and Software Requirements page of the Intel FPGA website (http://dl.altera.com/requirements/).
+#I have tried with docker build . --memory=8G --memory-swap=8G and the memory max was increased but it doesn't seem to be the problem
+#anyway I will left the binaries in the bin/ folder :(
 #RUN quartus_sh --flow compile DE10_NANO_SoC_GHRD.qpf
 
+#build linux-app for custom leds
+WORKDIR /home/builder/code/custom_leds/linux-app/userspace
+RUN make -j$(nproc)
+
+WORKDIR /home/builder/code/custom_leds/linux-app/kernelspace
+RUN make -j$(nproc) KDIR=/home/builder/linux-socfpga/
 
 # Set output files
 WORKDIR /home/builder
@@ -251,6 +260,19 @@ RUN mkdir output
 RUN ln -s linux_socfpga/arch/arm/boot/zImage /home/builder/output/zImage
 RUN ln -s buildroot/output/image/rootfs.tar /home/builder/output/rootfs.tar
 
+#custom_leds output
+RUN mkdir -p /home/builder/output/custom_leds
+WORKDIR /home/builder/output/custom_leds
+ADD bin/* /home/builder/output/custom_leds
+RUN cp /home/builder/code/custom_leds/linux-app/kernelspace/custom_leds.ko custom_leds.ko
+RUN cp /home/builder/code/custom_leds/linux-app/kernelspace/test_custom_leds.ko.sh test_custom_leds.ko.sh
+RUN cp /home/builder/code/custom_leds/linux-app/userspace/devmem_demo devmem_demo
+
+# Build microSD here 
+#create fs
+#copy PreLoader into p0
+#copy rootfs into p1
+#copy u-boot.img u-boot.scr soc_system.dtb soc_system.rbf zImage into p2 FAT-fs
 
 # Set env vars
 ENV LIBGL_ALWAYS_INDIRECT=0
