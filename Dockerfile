@@ -289,7 +289,19 @@ ENV DISPLAY=192.168.0.7:0
 ENV PASSWORD=builder
 USER root
 RUN echo "builder:builder" | chpasswd
-ENTRYPOINT ["/nxserver.sh"]
+RUN chmod +x /nxserver.sh
+# edit the Nomachine node configuration;
+# caution: both node.cfg and server.cfg files 
+# must be edited for the changes to take effect;
+# define the location and names of the config files
+ARG NX_NODE_CFG=/usr/NX/etc/node.cfg
+ARG NX_SRV_CFG=/usr/NX/etc/server.cfg
+# (note we edit the config files *[i]n place* (hence sed -i)
+# and replace *[c]omplete* lines using "c\" switch):
+# - replace the default desktop command (DefaultDesktopCommand) used by NoMachine with the preferred (lightweight) desktop
+#RUN sed -i '/DefaultDesktopCommand/c\DefaultDesktopCommand "/usr/bin/startxfce4"' $NX_NODE_CFG
+#RUN sed -i '/DefaultDesktopCommand/c\DefaultDesktopCommand "/usr/bin/startxfce4"' $NX_SRV_CFG
 
+ENTRYPOINT ["/nxserver.sh"]
 #ENTRYPOINT ["/bin/bash"]
 #ENTRYPOINT ["quartus"]

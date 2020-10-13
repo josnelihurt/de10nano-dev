@@ -1,12 +1,15 @@
-version: '2'
+version: "3"
 
 services:
   builder:
     build: .
     image: de10-nano-builder:v1
-    ports: 
-      - 4400:4000
+    container_name: de10nano-builder
+    ports:
+      - "4400:4000"
     environment: 
       - PASSWORD=password
+    cap_add:
+      - SYS_PTRACE
     stdin_open: true # docker run -i
     tty: true        # docker run -t
