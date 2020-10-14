@@ -1,8 +1,20 @@
 version: "3"
 
 services:
+  downloader:
+    build: 
+        context: .
+        target: downloader
+    image: de10nano-downloader:v1
+    container_name: de10nano-downloader
+    ports:
+      - "8080:80"
+    volumes:
+      - "./default-config-files/nginx.config:/etc/nginx/nginx.conf"
   builder:
-    build: .
+    build: 
+        context: .
+        target: builder
     image: de10-nano-builder:v1
     container_name: de10nano-builder
     ports:
