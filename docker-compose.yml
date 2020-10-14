@@ -1,10 +1,10 @@
-version: '3.5'
+version: "3.5"
 
 services:
   downloader:
-    build: 
-        context: .
-        target: downloader
+    build:
+      context: .
+      target: downloader
     image: de10nano-downloader:v1
     container_name: de10nano-downloader
     ports:
@@ -12,16 +12,18 @@ services:
     volumes:
       - "./default-config-files/nginx.config:/etc/nginx/nginx.conf"
   builder:
-    build: 
-        context: .
-        target: builder
+    build:
+      context: .
+      target: builder_runner
     image: de10-nano-builder:v1
     container_name: de10nano-builder
     ports:
       - "4400:4000"
-    environment: 
+    environment:
       - PASSWORD=password
     cap_add:
       - SYS_PTRACE
-    stdin_open: true # docker run -i
-    tty: true        # docker run -t
+    volumes:
+      - external_code:/home/builder/src_external
+volumes:
+  external_code:
