@@ -110,11 +110,13 @@ RUN mkdir /home/builder/.icons; \
 USER builder
 
 # Prepare permissions to install components
-WORKDIR /home/builder/downloads
+WORKDIR /home/builder/downloads 
 COPY --from=downloader --chown=builder \
     /downloads/ModelSimSetup-17.1.0.590-linux.run \
     /downloads/QuartusLiteSetup-17.1.0.590-linux.run \
+    /downloads/Quartus-lite-17.1.0.590-linux.tar \
     /downloads/SoCEDSSetup-17.1.0.590-linux.run \
+    /downloads/cyclonev-17.1.0.590.qdz \
     /downloads/DE10-Nano_v.1.3.8_HWrevC_SystemCD.zip \
     /downloads/gcc-linaro-6.5.0-2018.12-x86_64_arm-linux-gnueabihf.tar.xz \
     /downloads/gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf.tar.xz \
