@@ -1,39 +1,8 @@
-FROM nginx as downloader
-LABEL author="josnelihurt rodriguez <josnelihurt@gmail.com>"
-
-RUN apt-get update && apt-get install -y wget git && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /downloads
-#this me change beaware
-RUN wget "https://download.nomachine.com/download/6.12/Linux/nomachine_6.12.3_8_i386.deb"
-
-# Download CD-ROOM tools from Terasic for DE10-nano
-RUN wget http://download.terasic.com/downloads/cd-rom/de10-nano/DE10-Nano_v.1.3.8_HWrevC_SystemCD.zip; \
-    wget http://download.terasic.com/downloads/cd-rom/de10-nano/AngstromImage/de10-nano-image-Angstrom-v2016.12.socfpga-sdimg.2017.03.31.tgz
-
-# Download cross compile tools
-#gcc 6.3 this is for uboot 'cause it seems to fail with newer versions
-#gcc 7.1 this is for the rest
-RUN wget https://releases.linaro.org/components/toolchain/binaries/latest-6/arm-linux-gnueabihf/gcc-linaro-6.5.0-2018.12-x86_64_arm-linux-gnueabihf.tar.xz; \
-    wget https://releases.linaro.org/components/toolchain/binaries/7.1-2017.05/arm-linux-gnueabihf/gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf.tar.xz
-
-RUN wget http://download.altera.com/akdlm/software/acdsinst/17.1std/590/ib_installers/QuartusLiteSetup-17.1.0.590-linux.run; \
-    wget http://download.altera.com/akdlm/software/acdsinst/17.1std/590/ib_installers/ModelSimSetup-17.1.0.590-linux.run; \
-    wget http://download.altera.com/akdlm/software/acdsinst/17.1std/590/ib_installers/cyclonev-17.1.0.590.qdz; \
-    wget http://download.altera.com/akdlm/software/acdsinst/17.1std/590/ib_tar/Quartus-lite-17.1.0.590-linux.tar; \ 
-    wget http://download.altera.com/akdlm/software/acdsinst/17.1std/590/ib_installers/SoCEDSSetup-17.1.0.590-linux.run
-
-
-# Download repositories
-# RUN git clone https://github.com/altera-opensource/linux-socfpga.git 
-# RUN git clone git://git.buildroot.net/buildroot
-
-#build root RUN git checkout 2018.05.1 
-#kernel -> git checkout rel_socfpga-4.9.78-ltsi_18.07.02_pr #Check your repository for the latest, in my case I went with this one
-
-
 ####################################################################################################################################
-FROM debian:stretch as builder
+FROM nginx as downloader
+####################################################################################################################################
+FROM debian:stretch as debian-nxserver
+LABEL author="josnelihurt rodriguez <josnelihurt@gmail.com>"
 
 ENV TERM dumb
 
@@ -72,80 +41,82 @@ RUN sudo dpkg --add-architecture i386; \
     sudo apt-get install -y \
     libxft2:i386 libxext6:i386 libncurses5:i386 \
     libc6:i386 libstdc++6:i386 unixodbc-dev \
-    lib32ncurses5-dev libzmq3-dev gtk2-engines-pixbuf:i386
-
-# Set the locale, Quartus expects en_US.UTF-8
-RUN echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen && \
+    lib32ncurses5-dev libzmq3-dev gtk2-engines-pixbuf:i386 \
+    echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen && \
     locale-gen
 ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
 
-# Allow builder to sudo without password
-RUN echo "builder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-RUN usermod -aG sudo builder
-USER builder
-
 # Install nxserver
-RUN sudo apt-get clean && sudo apt-get update && \
-    sudo apt-get update -y && \
-    sudo apt-get install -y xterm libgconf2-4 iputils-ping libxss1 wget xdg-utils \
-    libpango1.0-0 fonts-liberation xfce4-goodies htop gnome-icon-theme;\
-    mkdir /home/builder/downloads
-WORKDIR /home/builder/downloads
+WORKDIR /tmp
+RUN apt-get clean && apt-get update && \
+    apt-get update -y && \
+    apt-get install -y xterm libgconf2-4 iputils-ping libxss1 wget xdg-utils \
+    libpango1.0-0 fonts-liberation xfce4-goodies htop gnome-icon-theme    
 ADD default-config-files/nxserver.sh /nxserver.sh
-ADD default-config-files/.profile /home/builder/.profile
-ADD default-config-files/.config /home/builder/.config
-RUN sudo chown -R builder /home/builder/.profile; sudo chown -R builder /home/builder/.config
-COPY --from=downloader /downloads/nomachine_6.12.3_8_i386.deb .
-RUN sudo dpkg -i nomachine_6.12.3_8_i386.deb && \
+ADD ./downloader/downloads/nomachine_6.12.3_8_i386.deb .
+RUN dpkg -i nomachine_6.12.3_8_i386.deb && \
     sudo sed -i "s|#EnableClipboard both|EnableClipboard both |g" /usr/NX/etc/server.cfg; \
     rm nomachine_6.12.3_8_i386.deb
 
-RUN mkdir /home/builder/.icons; \
+####################################################################################################################################
+FROM nxserver-debian as builder
+
+# Allow builder to sudo without password
+RUN echo "builder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+RUN usermod -aG sudo builder
+
+USER builder
+ENV TERM=xterm-color
+
+WORKDIR /home/builder/downloads
+ADD default-config-files/.profile /home/builder/.profile
+ADD default-config-files/.config /home/builder/.config
+RUN sudo chown -R builder /home/builder/.profile; sudo chown -R builder /home/builder/.config; \\
+    mkdir /home/builder/.icons; \
     cp -r /usr/share/icons/* /home/builder/.icons; \
     sudo chown -R builder /home/builder/.icons
 
-
-USER builder
-
-# Prepare permissions to install components
-WORKDIR /home/builder/downloads 
-COPY --from=downloader --chown=builder \
-    /downloads/ModelSimSetup-17.1.0.590-linux.run \
-    /downloads/QuartusLiteSetup-17.1.0.590-linux.run \
-    /downloads/Quartus-lite-17.1.0.590-linux.tar \
-    /downloads/SoCEDSSetup-17.1.0.590-linux.run \
-    /downloads/cyclonev-17.1.0.590.qdz \
-    /downloads/DE10-Nano_v.1.3.8_HWrevC_SystemCD.zip \
-    /downloads/gcc-linaro-6.5.0-2018.12-x86_64_arm-linux-gnueabihf.tar.xz \
-    /downloads/gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf.tar.xz \
+COPY --chown=builder \
+    ./downloader/downloads/ModelSimSetup-17.1.0.590-linux.run \
+    ./downloader/downloads/QuartusLiteSetup-17.1.0.590-linux.run \
+    ./downloader/downloads/Quartus-lite-17.1.0.590-linux.tar \
+    ./downloader/downloads/SoCEDSSetup-17.1.0.590-linux.run \
+    ./downloader/downloads/cyclonev-17.1.0.590.qdz \
+    ./downloader/downloads/DE10-Nano_v.1.3.8_HWrevC_SystemCD.zip \
+    ./downloader/downloads/gcc-linaro-6.5.0-2018.12-x86_64_arm-linux-gnueabihf.tar.xz \
+    ./downloader/downloads/gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf.tar.xz \
+    ./downloader/downloads/linux-socfpga.zip \
+    ./downloader/downloads/buildroot.zip \
     ./
 
+# Install components 
 RUN chmod +x ModelSimSetup-17.1.0.590-linux.run \
     QuartusLiteSetup-17.1.0.590-linux.run \
-    SoCEDSSetup-17.1.0.590-linux.run
-
-# Install components 
-RUN ./QuartusLiteSetup-17.1.0.590-linux.run --mode unattended --accept_eula 1 \
+    SoCEDSSetup-17.1.0.590-linux.run; \
+    ./QuartusLiteSetup-17.1.0.590-linux.run --mode unattended --accept_eula 1 \
     --disable-components quartus_help; \
-    rm QuartusLiteSetup-17.1.0.590-linux.run
-RUN ./SoCEDSSetup-17.1.0.590-linux.run --mode unattended --accept_eula 1 \
+    rm QuartusLiteSetup-17.1.0.590-linux.run; \
+    ./SoCEDSSetup-17.1.0.590-linux.run --mode unattended --accept_eula 1 \
     --installdir /home/builder/intelFPGA_lite/17.1/; \
     rm SoCEDSSetup-17.1.0.590-linux.run
 # export quartus path
 ENV PATH $PATH:/home/builder/intelFPGA_lite/17.1/quartus/bin
 
 WORKDIR /home/builder
+#extract cross tools and git repositories
 RUN tar -xvf downloads/gcc-linaro-6.5.0-2018.12-x86_64_arm-linux-gnueabihf.tar.xz; \
     rm downloads/gcc-linaro-6.5.0-2018.12-x86_64_arm-linux-gnueabihf.tar.xz; \
     tar -xvf downloads/gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf.tar.xz; \
-    rm downloads/gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf.tar.xz 
+    rm downloads/gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf.tar.xz; \
+    unzip downloads/linux-socfpga.zip -d /home/builder/linux-socfpga; \
+    rm downloads/linux-socfpga.zip ; \
+    unzip downloads/buildroot.zip -d /home/builder/buildroot; \
+    rm downloads/buildroot.zip
 
 #export CROSS_COMPILE=$PWD/gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
 #export CROSS_COMPILE=$PWD/gcc-linaro-6.3.1-2017.05-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
-
-ENV TERM=xterm-color
 
 # Build and install libpng used by quartus
 WORKDIR /tmp
@@ -161,15 +132,7 @@ RUN sudo mv libstdc++.so.6 libstdc++.so.6.quartus_distrib; \
     sudo ln -s /usr/lib/x86_64-linux-gnu/libstdc++.so.6 libstdc++.so.6
 
 
-WORKDIR /home/builder/
-RUN mkdir Desktop; ln -s /home/builder/intelFPGA_lite/17.1/quartus/bin/quartus /home/builder/Desktop
-
-#####################################################################################################
-## If you modify the upper lines you will lose the system configuration and you will need a coffee ##
-#####################################################################################################
-# Download repositories
-RUN git clone https://github.com/altera-opensource/linux-socfpga.git; \ 
-    git clone git://git.buildroot.net/buildroot
+RUN mkdir -p /home/builder/Desktop; ln -s /home/builder/intelFPGA_lite/17.1/quartus/bin/quartus /home/builder/Desktop
 
 #build root RUN git checkout 2018.05.1 
 #kernel -> git checkout rel_socfpga-4.9.78-ltsi_18.07.02_pr #Check your repository for the latest, in my case I went with this one
@@ -248,18 +211,5 @@ ENV PASSWORD=builder
 USER root
 RUN echo "builder:builder" | chpasswd
 RUN chmod +x /nxserver.sh
-# edit the Nomachine node configuration;
-# caution: both node.cfg and server.cfg files 
-# must be edited for the changes to take effect;
-# define the location and names of the config files
-ARG NX_NODE_CFG=/usr/NX/etc/node.cfg
-ARG NX_SRV_CFG=/usr/NX/etc/server.cfg
-# (note we edit the config files *[i]n place* (hence sed -i)
-# and replace *[c]omplete* lines using "c\" switch):
-# - replace the default desktop command (DefaultDesktopCommand) used by NoMachine with the preferred (lightweight) desktop
-#RUN sed -i '/DefaultDesktopCommand/c\DefaultDesktopCommand "/usr/bin/startxfce4"' $NX_NODE_CFG
-#RUN sed -i '/DefaultDesktopCommand/c\DefaultDesktopCommand "/usr/bin/startxfce4"' $NX_SRV_CFG
 
 ENTRYPOINT ["/nxserver.sh"]
-# #ENTRYPOINT ["/bin/bash"]
-# #ENTRYPOINT ["quartus"]

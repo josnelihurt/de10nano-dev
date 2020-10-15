@@ -1,12 +1,9 @@
 version: "3.5"
 
 services:
-  downloader:
-    build:
-      context: .
-      target: downloader
-    image: de10nano-downloader:v1
-    container_name: de10nano-downloader
+  http:
+    image: de10nano-http:v1
+    container_name: de10nano-http
     ports:
       - "8080:80"
     volumes:

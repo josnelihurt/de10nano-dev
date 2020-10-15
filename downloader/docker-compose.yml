@@ -1,0 +1,12 @@
+version: "3.5"
+
+services:
+  downloader:
+    build:
+      context: ./build
+      target: downloader
+    image: files-downloader
+    container_name: files-downloader
+    entrypoint: /bin/bash /download_packages.sh
+    volumes:
+      - "./downloads:/downloads"
