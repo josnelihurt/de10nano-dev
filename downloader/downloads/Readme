@@ -1,0 +1,5 @@
+How to run
+=========
+In this folder you should see the files downloads by download_package.sh 
+you should run this script using run.sh, it will use docker and docker-compose
+I don't want to deal with other dependencies in your local environment so, Docker rules
