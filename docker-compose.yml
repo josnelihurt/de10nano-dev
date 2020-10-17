@@ -18,3 +18,15 @@ services:
       - .config/.altera.quartus/:/home/builder/.altera.quartus/:rw
       - ./workspace_persistent:/home/builder/external_workspace:rw
     privileged: true
+  builder-micro-sd:
+    build:
+      context: .
+      target: builder_micro_sd
+    image: de10-nano-builder-micro-sd:v1
+    container_name: de10nano-builder-micro-sd
+    cap_add:
+      - SYS_PTRACE
+    volumes:
+      - /dev:/dev
+      - ./workspace_persistent:/output:rw
+    privileged: true

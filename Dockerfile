@@ -198,6 +198,12 @@ RUN make -j$(nproc)
 WORKDIR /home/builder/code/custom_leds/linux-app/kernelspace
 RUN make -j$(nproc) KDIR=/home/builder/linux-socfpga/
 
+#Download sd img
+WORKDIR /home/builder
+RUN mkdir /home/builder/output;
+WORKDIR /home/builder/output
+RUN wget http://${DOWNLOADER_SRV}:${DOWNLOADER_PORT}/de10_nano_linux_console.zip;
+
 # Set output files
 WORKDIR /home/builder
 RUN mkdir /home/builder/output; \ 
@@ -209,17 +215,13 @@ RUN mkdir /home/builder/output; \
 #custom_leds output
 RUN mkdir -p /home/builder/output/custom_leds
 WORKDIR /home/builder/output/custom_leds
-ADD bin/* /home/builder/output/custom_leds
+ADD bin/custom_leds/* /home/builder/output/custom_leds/
 RUN cp /home/builder/code/custom_leds/linux-app/kernelspace/custom_leds.ko custom_leds.ko; \
     cp /home/builder/code/custom_leds/linux-app/kernelspace/test_custom_leds.ko.sh test_custom_leds.ko.sh; \
-    cp /home/builder/code/custom_leds/linux-app/userspace/devmem_demo devmem_demo
+    cp /home/builder/code/custom_leds/linux-app/userspace/devmem_demo devmem_demo; \
+    cp /home/builder/code/custom_leds/software/spl_bsp/preloader-mkpimage.bin /home/builder/output/preloader-mkpimage.bin;
 
-# # Build microSD here 
-WORKDIR /home/builder/output
-ADD src/scripts/sd_img_creator.sh sd_img_creator.sh
-RUN chmod +x sd_img_creator.sh; \
-    wget http://${DOWNLOADER_SRV}:${DOWNLOADER_PORT}/de10_nano_linux_console.zip; \
-    ./sd_img_creator.sh;
+
 
 # #create fs
 # #copy PreLoader into p0
@@ -240,6 +242,9 @@ ENV DefaultIMModule=fcitx
 ENV LC_ALL="en_US.UTF-8"
 ENV LD_PRELOAD=/usr/lib/libtcmalloc_minimal.so.4
 
+# # Build microSD here 
+WORKDIR /home/builder/output
+ADD src/scripts/sd_img_creator.sh sd_img_creator.sh
 #change this with -e PASSWORD=password in the docker command or in docker-compose
 ENV PASSWORD=builder
 USER root
@@ -247,3 +252,12 @@ ADD default-config-files/nxserver.sh /nxserver.sh
 RUN echo "builder:builder" | chpasswd
 RUN chmod +x /nxserver.sh
 ENTRYPOINT ["/nxserver.sh"]
+#################################################
+FROM builder_runner as builder_micro_sd
+USER root
+
+WORKDIR /home/builder/output
+RUN chmod +x sd_img_creator.sh; 
+
+#ENTRYPOINT ["bash", "echo", "none"]
+ENTRYPOINT ["/home/builder/output/sd_img_creator.sh"]

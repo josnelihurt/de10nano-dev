@@ -16,4 +16,5 @@ docker-compose build
 
 #To connect to the main server use nxclient on the configured port by default 4400,
 #why this port? and not the standart 4000, cause I also have a nxserver on my local machine :P
+docker-compose run builder-micro-sd
 docker-compose up -d
