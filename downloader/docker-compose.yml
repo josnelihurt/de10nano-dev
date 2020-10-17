@@ -1,6 +1,29 @@
 version: "3.5"
 
 services:
+  http:
+    build:
+      context: ./build
+      target: http
+    container_name: de10nano-http
+    ports:
+      - "8080:80"
+    volumes:
+      - type: bind
+        source: ./downloads/
+        target: /downloads/
+  # sftp:
+  #   image: writl/sftp
+  #   container_name: de10nano-sftp
+  #   ports: 
+  #     - "2222:22"
+  #   environment: 
+  #     - USER:"sftp"
+  #     #- PASS:"123"c83eDteUDT
+  #   volumes:
+  #     - type: bind
+  #       source: ./downloads/
+  #       target: /data/incoming
   downloader:
     build:
       context: ./build
@@ -9,4 +32,6 @@ services:
     container_name: files-downloader
     entrypoint: /bin/bash /download_packages.sh
     volumes:
-      - "./downloads:/downloads"
+      - type: bind
+        source: ./downloads/
+        target: /downloads/

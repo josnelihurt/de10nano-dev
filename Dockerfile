@@ -1,6 +1,4 @@
 ####################################################################################################################################
-FROM nginx as downloader
-####################################################################################################################################
 FROM debian:stretch as debian-nxserver
 LABEL author="josnelihurt rodriguez <josnelihurt@gmail.com>"
 
@@ -41,7 +39,7 @@ RUN sudo dpkg --add-architecture i386; \
     sudo apt-get install -y \
     libxft2:i386 libxext6:i386 libncurses5:i386 \
     libc6:i386 libstdc++6:i386 unixodbc-dev \
-    lib32ncurses5-dev libzmq3-dev gtk2-engines-pixbuf:i386 \
+    lib32ncurses5-dev libzmq3-dev gtk2-engines-pixbuf:i386; \
     echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen && \
     locale-gen
 ENV LANG en_US.UTF-8
@@ -53,15 +51,19 @@ WORKDIR /tmp
 RUN apt-get clean && apt-get update && \
     apt-get update -y && \
     apt-get install -y xterm libgconf2-4 iputils-ping libxss1 wget xdg-utils \
-    libpango1.0-0 fonts-liberation xfce4-goodies htop gnome-icon-theme    
-ADD default-config-files/nxserver.sh /nxserver.sh
-ADD ./downloader/downloads/nomachine_6.12.3_8_i386.deb .
-RUN dpkg -i nomachine_6.12.3_8_i386.deb && \
+    libpango1.0-0 fonts-liberation xfce4-goodies htop gnome-icon-theme \
+    gparted mount dosfstools bless geany
+
+ENV DOWNLOADER_SRV=localhost
+ENV DOWNLOADER_PORT=8080
+
+RUN wget http://${DOWNLOADER_SRV}:${DOWNLOADER_PORT}/nomachine_6.12.3_8_i386.deb; \
+    dpkg -i nomachine_6.12.3_8_i386.deb && \
     sudo sed -i "s|#EnableClipboard both|EnableClipboard both |g" /usr/NX/etc/server.cfg; \
     rm nomachine_6.12.3_8_i386.deb
 
 ####################################################################################################################################
-FROM nxserver-debian as builder
+FROM debian-nxserver as builder
 
 # Allow builder to sudo without password
 RUN echo "builder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
@@ -70,83 +72,75 @@ RUN usermod -aG sudo builder
 USER builder
 ENV TERM=xterm-color
 
-WORKDIR /home/builder/downloads
 ADD default-config-files/.profile /home/builder/.profile
 ADD default-config-files/.config /home/builder/.config
-RUN sudo chown -R builder /home/builder/.profile; sudo chown -R builder /home/builder/.config; \\
-    mkdir /home/builder/.icons; \
+RUN sudo chown -R builder /home/builder/.profile; sudo chown -R builder /home/builder/.config; \
+    mkdir -p /home/builder/.icons; \
     cp -r /usr/share/icons/* /home/builder/.icons; \
-    sudo chown -R builder /home/builder/.icons
+    sudo chown -R builder /home/builder/.icons; \
+    mkdir -p /home/builder/downloads
 
-COPY --chown=builder \
-    ./downloader/downloads/ModelSimSetup-17.1.0.590-linux.run \
-    ./downloader/downloads/QuartusLiteSetup-17.1.0.590-linux.run \
-    ./downloader/downloads/Quartus-lite-17.1.0.590-linux.tar \
-    ./downloader/downloads/SoCEDSSetup-17.1.0.590-linux.run \
-    ./downloader/downloads/cyclonev-17.1.0.590.qdz \
-    ./downloader/downloads/DE10-Nano_v.1.3.8_HWrevC_SystemCD.zip \
-    ./downloader/downloads/gcc-linaro-6.5.0-2018.12-x86_64_arm-linux-gnueabihf.tar.xz \
-    ./downloader/downloads/gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf.tar.xz \
-    ./downloader/downloads/linux-socfpga.zip \
-    ./downloader/downloads/buildroot.zip \
-    ./
-
+WORKDIR /home/builder/downloads
 # Install components 
-RUN chmod +x ModelSimSetup-17.1.0.590-linux.run \
-    QuartusLiteSetup-17.1.0.590-linux.run \
-    SoCEDSSetup-17.1.0.590-linux.run; \
-    ./QuartusLiteSetup-17.1.0.590-linux.run --mode unattended --accept_eula 1 \
-    --disable-components quartus_help; \
-    rm QuartusLiteSetup-17.1.0.590-linux.run; \
-    ./SoCEDSSetup-17.1.0.590-linux.run --mode unattended --accept_eula 1 \
-    --installdir /home/builder/intelFPGA_lite/17.1/; \
-    rm SoCEDSSetup-17.1.0.590-linux.run
-# export quartus path
-ENV PATH $PATH:/home/builder/intelFPGA_lite/17.1/quartus/bin
-
-WORKDIR /home/builder
-#extract cross tools and git repositories
-RUN tar -xvf downloads/gcc-linaro-6.5.0-2018.12-x86_64_arm-linux-gnueabihf.tar.xz; \
-    rm downloads/gcc-linaro-6.5.0-2018.12-x86_64_arm-linux-gnueabihf.tar.xz; \
-    tar -xvf downloads/gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf.tar.xz; \
-    rm downloads/gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf.tar.xz; \
-    unzip downloads/linux-socfpga.zip -d /home/builder/linux-socfpga; \
-    rm downloads/linux-socfpga.zip ; \
-    unzip downloads/buildroot.zip -d /home/builder/buildroot; \
-    rm downloads/buildroot.zip
-
-#export CROSS_COMPILE=$PWD/gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
-#export CROSS_COMPILE=$PWD/gcc-linaro-6.3.1-2017.05-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
-
 # Build and install libpng used by quartus
 WORKDIR /tmp
 RUN wget https://netactuate.dl.sourceforge.net/project/libpng/libpng12/1.2.59/libpng-1.2.59.tar.gz; \
     tar -xvf libpng-1.2.59.tar.gz; \
+    rm -rf libpng-1.2.59.tar.gz; \
     cd /tmp/libpng-1.2.59; \
     ./configure --prefix=/usr/local; \
-    make -j$(nproc); sudo make install;sudo ldconfig
+    make -j$(nproc); sudo make install;sudo ldconfig; \
+    cd /tmp; rm -rf /tmp/libpng-1.2.59;
+    
+RUN \
+    wget http://${DOWNLOADER_SRV}:${DOWNLOADER_PORT}/SoCEDSSetup-17.1.0.590-linux.run; \
+    chmod +x SoCEDSSetup-17.1.0.590-linux.run; \
+    ./SoCEDSSetup-17.1.0.590-linux.run --mode unattended --accept_eula 1 --installdir /home/builder/intelFPGA_lite/17.1/; \
+    rm SoCEDSSetup-17.1.0.590-linux.run ;
+RUN \
+    wget http://${DOWNLOADER_SRV}:${DOWNLOADER_PORT}/ModelSimSetup-17.1.0.590-linux.run; \
+    wget http://${DOWNLOADER_SRV}:${DOWNLOADER_PORT}/QuartusLiteSetup-17.1.0.590-linux.run; \
+    wget http://${DOWNLOADER_SRV}:${DOWNLOADER_PORT}/Quartus-lite-17.1.0.590-linux.tar; \
+    wget http://${DOWNLOADER_SRV}:${DOWNLOADER_PORT}/cyclonev-17.1.0.590.qdz; \
+    chmod +x ModelSimSetup-17.1.0.590-linux.run; \
+    chmod +x QuartusLiteSetup-17.1.0.590-linux.run; \
+    ./QuartusLiteSetup-17.1.0.590-linux.run --mode unattended --accept_eula 1 --disable-components quartus_help; \
+    rm -rf *; 
+WORKDIR /home/builder
+RUN \
+    cd /home/builder; \
+    wget http://${DOWNLOADER_SRV}:${DOWNLOADER_PORT}/gcc-linaro-6.5.0-2018.12-x86_64_arm-linux-gnueabihf.tar.xz; \
+    tar -xvf gcc-linaro-6.5.0-2018.12-x86_64_arm-linux-gnueabihf.tar.xz; \
+    rm gcc-linaro-6.5.0-2018.12-x86_64_arm-linux-gnueabihf.tar.xz; 
+
+RUN \    
+    wget http://${DOWNLOADER_SRV}:${DOWNLOADER_PORT}/gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf.tar.xz; \
+    tar -xvf gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf.tar.xz; \
+    rm gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf.tar.xz; 
+
+# export quartus path
+ENV PATH $PATH:/home/builder/intelFPGA_lite/17.1/quartus/bin
+#export CROSS_COMPILE=$PWD/gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
+#export CROSS_COMPILE=$PWD/gcc-linaro-6.3.1-2017.05-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
 
 # Tweak libstdc++.so.6 inside quartus http://www.stevesmuddlings.org/2015/09/test-post-1.html
 WORKDIR /home/builder/intelFPGA_lite/17.1/quartus/linux64/
 RUN sudo mv libstdc++.so.6 libstdc++.so.6.quartus_distrib; \
     sudo ln -s /usr/lib/x86_64-linux-gnu/libstdc++.so.6 libstdc++.so.6
 
-
 RUN mkdir -p /home/builder/Desktop; ln -s /home/builder/intelFPGA_lite/17.1/quartus/bin/quartus /home/builder/Desktop
 
+#################################################
 #build root RUN git checkout 2018.05.1 
 #kernel -> git checkout rel_socfpga-4.9.78-ltsi_18.07.02_pr #Check your repository for the latest, in my case I went with this one
 FROM builder as builder_runner
-# Build the kernel
+# Download repositories
+
 ENV CROSS_COMPILE=/home/builder/gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
 
-WORKDIR /home/builder/linux-socfpga
-RUN git checkout rel_socfpga-4.9.78-ltsi_18.07.02_pr
-#COPY linux.config .config
-RUN make ARCH=arm socfpga_defconfig; \
-    make ARCH=arm LOCALVERSION= zImage -j$(nproc)
-
 # Build rootfs
+WORKDIR /home/builder/
+RUN git clone git://git.buildroot.net/buildroot
 WORKDIR /home/builder/buildroot
 RUN git checkout 2018.05.1 
 COPY default-config-files/buildroot.config .config
@@ -156,8 +150,32 @@ RUN make -C buildroot ARCH=ARM oldconfig; \
     -j$(nproc) \ 
     BR2_TOOLCHAIN_EXTERNAL_PATH=/home/builder/gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf all
 
-# Build uboot
+# Build the kernel
+WORKDIR /home/builder/
+RUN git clone https://github.com/altera-opensource/linux-socfpga.git
+WORKDIR /home/builder/linux-socfpga
+RUN git checkout rel_socfpga-4.9.78-ltsi_18.07.02_pr
+#COPY linux.config .config
+RUN make ARCH=arm socfpga_defconfig; \
+    make ARCH=arm LOCALVERSION= zImage -j$(nproc)
 
+# Build uboot
+WORKDIR /home/builder/
+RUN git clone https://github.com/altera-opensource/u-boot-socfpga.git; \
+    cd u-boot-socfpga; \
+    git checkout rel_socfpga_v2013.01.01_17.08.01_pr; 
+RUN cd /home/builder/; \    
+    wget http://${DOWNLOADER_SRV}:${DOWNLOADER_PORT}/gcc-linaro-6.3.1-2017.02-x86_64_arm-linux-gnueabihf.tar.xz; \
+    tar -xvf gcc-linaro-6.3.1-2017.02-x86_64_arm-linux-gnueabihf.tar.xz; \
+    rm gcc-linaro-6.3.1-2017.02-x86_64_arm-linux-gnueabihf.tar.xz;
+#Just to build uboot 
+ENV CROSS_COMPILE=/home/builder/gcc-linaro-6.3.1-2017.02-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
+RUN cd u-boot-socfpga; \
+    make mrproper; \
+    make socfpga_cyclone5_config; \
+    make; 
+
+ENV CROSS_COMPILE=/home/builder/gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
 # Build default example
 RUN mkdir code
 WORKDIR /home/builder/code
@@ -168,6 +186,10 @@ WORKDIR /home/builder/code/custom_leds
 #I have tried with docker build . --memory=8G --memory-swap=8G and the memory max was increased but it doesn't seem to be the problem
 #anyway I will left the binaries in the bin/ folder :(
 #RUN quartus_sh --flow compile DE10_NANO_SoC_GHRD.qpf
+RUN sudo apt-get install -y u-boot-tools;\
+    cd /home/builder/code/custom_leds/bootscript/; \
+    mkimage -A arm -O linux -T script -C none -a 0 -e 0 -n "Boot Script Name" -d boot.script u-boot.scr
+
 
 #build linux-app for custom leds
 WORKDIR /home/builder/code/custom_leds/linux-app/userspace
@@ -178,24 +200,36 @@ RUN make -j$(nproc) KDIR=/home/builder/linux-socfpga/
 
 # Set output files
 WORKDIR /home/builder
-RUN mkdir output; \ 
-    ln -s linux_socfpga/arch/arm/boot/zImage /home/builder/output/zImage; \
-    ln -s buildroot/output/image/rootfs.tar /home/builder/output/rootfs.tar
+RUN mkdir /home/builder/output; \ 
+    cp /home/builder/linux-socfpga/arch/arm/boot/zImage /home/builder/output/zImage; \
+    cp /home/builder/code/custom_leds/bootscript/u-boot.scr /home/builder/output/u-boot.scr; \
+    cp /home/builder/u-boot-socfpga/u-boot.img /home/builder/output/u-boot.img; \
+    cp /home/builder/buildroot/output/images/rootfs.tar /home/builder/output/rootfs.tar; 
 
 #custom_leds output
 RUN mkdir -p /home/builder/output/custom_leds
 WORKDIR /home/builder/output/custom_leds
 ADD bin/* /home/builder/output/custom_leds
-RUN cp /home/builder/code/custom_leds/linux-app/kernelspace/custom_leds.ko custom_leds.ko
-RUN cp /home/builder/code/custom_leds/linux-app/kernelspace/test_custom_leds.ko.sh test_custom_leds.ko.sh
-RUN cp /home/builder/code/custom_leds/linux-app/userspace/devmem_demo devmem_demo
+RUN cp /home/builder/code/custom_leds/linux-app/kernelspace/custom_leds.ko custom_leds.ko; \
+    cp /home/builder/code/custom_leds/linux-app/kernelspace/test_custom_leds.ko.sh test_custom_leds.ko.sh; \
+    cp /home/builder/code/custom_leds/linux-app/userspace/devmem_demo devmem_demo
 
-# RUN unzip DE10-Nano_v.1.3.8_HWrevC_SystemCD.zip -d DE10-Nano_SystemCD 
 # # Build microSD here 
+WORKDIR /home/builder/output
+ADD src/scripts/sd_img_creator.sh sd_img_creator.sh
+RUN chmod +x sd_img_creator.sh; \
+    wget http://${DOWNLOADER_SRV}:${DOWNLOADER_PORT}/de10_nano_linux_console.zip; \
+    ./sd_img_creator.sh;
+
 # #create fs
 # #copy PreLoader into p0
 # #copy rootfs into p1
 # #copy u-boot.img u-boot.scr soc_system.dtb soc_system.rbf zImage into p2 FAT-fs
+
+#/home/builder/intelFPGA_lite/17.1/embedded/embedded_command_shell.sh 
+
+# Final packages
+RUN sudo apt-get install -y nano
 
 # Set env vars
 ENV LIBGL_ALWAYS_INDIRECT=0
@@ -209,7 +243,7 @@ ENV LD_PRELOAD=/usr/lib/libtcmalloc_minimal.so.4
 #change this with -e PASSWORD=password in the docker command or in docker-compose
 ENV PASSWORD=builder
 USER root
+ADD default-config-files/nxserver.sh /nxserver.sh
 RUN echo "builder:builder" | chpasswd
 RUN chmod +x /nxserver.sh
-
 ENTRYPOINT ["/nxserver.sh"]
