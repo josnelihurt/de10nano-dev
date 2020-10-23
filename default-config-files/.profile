@@ -8,7 +8,7 @@ fi
 
 mesg n
 export LC_ALL="en_US.UTF-8"
-export LD_PRELOAD=/usr/lib/libtcmalloc_minimal.so.4
+#export LD_PRELOAD=/usr/lib/libtcmalloc_minimal.so.4
 export CROSS_COMPILE=/home/builder/gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
 export PATH=$PATH:/home/builder/intelFPGA_lite/17.1/quartus/bin
 alias l='ls -alF'

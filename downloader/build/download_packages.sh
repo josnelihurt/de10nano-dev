@@ -44,6 +44,10 @@ if [ ! -f "$DEST_DIR/gcc-linaro-6.3.1-2017.02-x86_64_arm-linux-gnueabihf.tar.xz"
     wget "https://releases.linaro.org/components/toolchain/binaries/6.3-2017.02/arm-linux-gnueabihf/gcc-linaro-6.3.1-2017.02-x86_64_arm-linux-gnueabihf.tar.xz"
 fi
 
+if [ ! -f "$DEST_DIR/gcc-linaro-6.4.1-2018.05-x86_64_arm-linux-gnueabihf.tar.xz" ]; then
+    wget "https://releases.linaro.org/components/toolchain/binaries/6.4-2018.05/arm-linux-gnueabihf/gcc-linaro-6.4.1-2018.05-x86_64_arm-linux-gnueabihf.tar.xz"
+fi
+
 if [ ! -f "$DEST_DIR/gcc-linaro-6.5.0-2018.12-x86_64_arm-linux-gnueabihf.tar.xz" ]; then
     wget "https://releases.linaro.org/components/toolchain/binaries/latest-6/arm-linux-gnueabihf/gcc-linaro-6.5.0-2018.12-x86_64_arm-linux-gnueabihf.tar.xz"
 fi

@@ -136,6 +136,7 @@ RUN mkdir -p /home/builder/Desktop; ln -s /home/builder/intelFPGA_lite/17.1/quar
 FROM builder as builder_runner
 # Download repositories
 
+RUN sudo apt-get install -y flex bison
 ENV CROSS_COMPILE=/home/builder/gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
 
 # Build rootfs
@@ -160,20 +161,22 @@ RUN make ARCH=arm socfpga_defconfig; \
     make ARCH=arm LOCALVERSION= zImage -j$(nproc)
 
 # Build uboot
-WORKDIR /home/builder/
-RUN git clone https://github.com/altera-opensource/u-boot-socfpga.git; \
-    cd u-boot-socfpga; \
-    git checkout rel_socfpga_v2013.01.01_17.08.01_pr; 
-RUN cd /home/builder/; \    
-    wget http://${DOWNLOADER_SRV}:${DOWNLOADER_PORT}/gcc-linaro-6.3.1-2017.02-x86_64_arm-linux-gnueabihf.tar.xz; \
-    tar -xvf gcc-linaro-6.3.1-2017.02-x86_64_arm-linux-gnueabihf.tar.xz; \
-    rm gcc-linaro-6.3.1-2017.02-x86_64_arm-linux-gnueabihf.tar.xz;
+#For a reason that idk the uboot is compiled but it doesn't 
+#work as expected but using the same steps outside docker just works :/
+# WORKDIR /home/builder/
+# RUN git clone https://github.com/altera-opensource/u-boot-socfpga.git; \
+#     cd u-boot-socfpga; \
+#     git checkout rel_socfpga_v2013.01.01_17.08.01_pr; 
+# RUN cd /home/builder/; \    
+#     wget http://${DOWNLOADER_SRV}:${DOWNLOADER_PORT}/gcc-linaro-6.3.1-2017.02-x86_64_arm-linux-gnueabihf.tar.xz; \
+#     tar -xvf gcc-linaro-6.3.1-2017.02-x86_64_arm-linux-gnueabihf.tar.xz; \
+#     rm gcc-linaro-6.3.1-2017.02-x86_64_arm-linux-gnueabihf.tar.xz;
 #Just to build uboot 
-ENV CROSS_COMPILE=/home/builder/gcc-linaro-6.3.1-2017.02-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
-RUN cd u-boot-socfpga; \
-    make mrproper; \
-    make socfpga_cyclone5_config; \
-    make; 
+# ENV CROSS_COMPILE=/home/builder/gcc-linaro-6.3.1-2017.02-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
+# RUN cd u-boot-socfpga; \
+#     make mrproper; \
+#     make socfpga_cyclone5_config; \
+#     make -j$(nproc); 
 
 ENV CROSS_COMPILE=/home/builder/gcc-linaro-7.1.1-2017.05-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
 # Build default example
@@ -231,7 +234,7 @@ RUN cp /home/builder/code/custom_leds/linux-app/kernelspace/custom_leds.ko custo
 #/home/builder/intelFPGA_lite/17.1/embedded/embedded_command_shell.sh 
 
 # Final packages
-RUN sudo apt-get install -y nano
+RUN sudo apt-get install -y meld bsdmainutils
 
 # Set env vars
 ENV LIBGL_ALWAYS_INDIRECT=0
@@ -240,7 +243,7 @@ ENV QT_IM_MODULE=fcitx
 ENV XMODIFIERS="@im=fcitx"
 ENV DefaultIMModule=fcitx
 ENV LC_ALL="en_US.UTF-8"
-ENV LD_PRELOAD=/usr/lib/libtcmalloc_minimal.so.4
+#ENV LD_PRELOAD=/usr/lib/libtcmalloc_minimal.so.4
 
 # # Build microSD here 
 WORKDIR /home/builder/output

@@ -11,6 +11,7 @@ services:
       - "4400:4000"
     environment:
       - PASSWORD=password
+      - TZ=America/Bogota
     cap_add:
       - SYS_PTRACE
     volumes:
@@ -30,3 +31,11 @@ services:
       - /dev:/dev
       - ./workspace_persistent:/output:rw
     privileged: true
+  # builder-eds:
+  #   build:
+  #     context: eds-tools
+  #   image: de10-nano-builder-eds:v1
+  #   container_name: de10nano-builder-eds
+  #   volumes:
+  #     - ./workspace_persistent:/workspace_persistent:rw
+  #   privileged: true
