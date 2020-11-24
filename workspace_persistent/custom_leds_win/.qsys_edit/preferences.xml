@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<preferences>
+ <debug showDebugMenu="0" />
+ <systemtable filter="All Interfaces">
+  <columns>
+   <connections preferredWidth="191" />
+   <irq preferredWidth="63" />
+   <name preferredWidth="212" />
+  </columns>
+ </systemtable>
+ <library
+   expandedCategories="Library,Project,Project/Basic Functions,Project/Basic Functions/Miscellaneous" />
+ <window width="1591" height="1364" x="883" y="65" />
+ <generation block_symbol_file="0" />
+</preferences>
